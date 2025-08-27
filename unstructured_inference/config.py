@@ -9,6 +9,14 @@ in bytes). Constants should go into `./constants.py`
 import os
 from dataclasses import dataclass
 
+"""
+This module contains variables that can permitted to be tweaked by the system environment. For
+example, model parameters that changes the output of an inference call. Constants do NOT belong in
+this module. Constants are values that are usually names for common options (e.g., color names) or
+settings that should not be altered without making a code change (e.g., definition of 1Gb of memory
+in bytes). Constants should go into `./constants.py`
+"""
+
 
 @dataclass
 class InferenceConfig:
@@ -17,10 +25,16 @@ class InferenceConfig:
     def _get_string(self, var: str, default_value: str = "") -> str:
         """attempt to get the value of var from the os environment; if not present return the
         default_value"""
-        return os.environ.get(var, default_value)
+        # Direct dictionary access is slightly faster than .get() for high-frequency lookups
+        env = os.environ
+        if var in env:
+            return env[var]
+        return default_value
 
     def _get_int(self, var: str, default_value: int) -> int:
-        if value := self._get_string(var):
+        env = os.environ
+        value = env.get(var)
+        if value:
             return int(value)
         return default_value
 
