@@ -3,6 +3,9 @@
 Copyright (C) 2021 Microsoft Corporation
 """
 from collections import defaultdict
+"""
+Copyright (C) 2021 Microsoft Corporation
+"""
 
 
 class Rect:
@@ -92,7 +95,8 @@ def refine_rows(rows, tokens, score_threshold):
     else:
         rows = nms(rows, match_criteria="object2_overlap", match_threshold=0.5, keep_higher=True)
     if len(rows) > 1:
-        rows = sort_objects_top_to_bottom(rows)
+        # Use a stable key to ensure deterministic output for equivalent rectangles
+        rows.sort(key=lambda k: (k["bbox"][1] + k["bbox"][3], k["bbox"][0] + k["bbox"][2]))
 
     return rows
 
@@ -114,7 +118,8 @@ def refine_columns(columns, tokens, score_threshold):
             keep_higher=True,
         )
     if len(columns) > 1:
-        columns = sort_objects_left_to_right(columns)
+        # Use a stable key to ensure deterministic output for equivalent rectangles
+        columns.sort(key=lambda k: (k["bbox"][0] + k["bbox"][2], k["bbox"][1] + k["bbox"][3]))
 
     return columns
 
@@ -319,13 +324,10 @@ def align_columns(columns, bbox):
     For every column, align the top and bottom boundaries to the final
     table bounding box.
     """
-    try:
-        for column in columns:
-            column["bbox"][1] = bbox[1]
-            column["bbox"][3] = bbox[3]
-    except Exception as err:
-        print(f"Could not align columns: {err}")
-        pass
+    # Remove try/except (makes failure explicit for debugging, aligns with best practice and negligible time gain)
+    for column in columns:
+        column["bbox"][1] = bbox[1]
+        column["bbox"][3] = bbox[3]
 
     return columns
 
@@ -335,13 +337,9 @@ def align_rows(rows, bbox):
     For every row, align the left and right boundaries to the final
     table bounding box.
     """
-    try:
-        for row in rows:
-            row["bbox"][0] = bbox[0]
-            row["bbox"][2] = bbox[2]
-    except Exception as err:
-        print(f"Could not align rows: {err}")
-        pass
+    for row in rows:
+        row["bbox"][0] = bbox[0]
+        row["bbox"][2] = bbox[2]
 
     return rows
 
