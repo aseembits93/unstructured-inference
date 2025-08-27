@@ -20,12 +20,20 @@ class Rect:
 
     def get_area(self):
         """Calculates the area of the rectangle"""
-        area = (self.x_max - self.x_min) * (self.y_max - self.y_min)
-        return area if area > 0 else 0.0
+        width = self.x_max - self.x_min
+        height = self.y_max - self.y_min
+        # Short-circuit if width or height is not positive
+        if width <= 0 or height <= 0:
+            return 0.0
+        return width * height
 
     def intersect(self, other):
         """Calculates the intersection with another rectangle"""
-        if self.get_area() == 0:
+
+        # Fast path if area is already zero (so skip all mutation, just copy from "other")
+        width = self.x_max - self.x_min
+        height = self.y_max - self.y_min
+        if width <= 0 or height <= 0:
             self.x_min = other.x_min
             self.y_min = other.y_min
             self.x_max = other.x_max
@@ -36,7 +44,10 @@ class Rect:
             self.x_max = min(self.x_max, other.x_max)
             self.y_max = min(self.y_max, other.y_max)
 
-            if self.x_min > self.x_max or self.y_min > self.y_max or self.get_area() == 0:
+            # Directly check for degenerate conditions to avoid unnecessary get_area() calls
+            width = self.x_max - self.x_min
+            height = self.y_max - self.y_min
+            if width <= 0 or height <= 0:
                 self.x_min = 0
                 self.y_min = 0
                 self.x_max = 0
