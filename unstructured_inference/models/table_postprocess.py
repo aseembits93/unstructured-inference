@@ -3,6 +3,12 @@
 Copyright (C) 2021 Microsoft Corporation
 """
 from collections import defaultdict
+"""
+Copyright (C) 2021 Microsoft Corporation
+"""
+"""
+Copyright (C) 2021 Microsoft Corporation
+"""
 
 
 class Rect:
@@ -610,3 +616,37 @@ def remove_supercell_overlap(supercell1, supercell2):
             else:
                 supercell2["row_numbers"] = []
                 common_rows = set()
+
+def get_rect_area(bbox):
+    """Calculates the area from a bbox tuple/list [x_min, y_min, x_max, y_max]."""
+    area = (bbox[2] - bbox[0]) * (bbox[3] - bbox[1])
+    return area if area > 0 else 0.0
+
+def bbox_intersection(bbox1, bbox2):
+    """Returns the intersection area for two bbox tuples/lists."""
+    x_min = max(bbox1[0], bbox2[0])
+    y_min = max(bbox1[1], bbox2[1])
+    x_max = min(bbox1[2], bbox2[2])
+    y_max = min(bbox1[3], bbox2[3])
+    width = x_max - x_min
+    height = y_max - y_min
+    if width > 0 and height > 0:
+        return width * height
+    return 0.0
+
+def get_rect_area(bbox):
+    """Calculates the area from a bbox tuple/list [x_min, y_min, x_max, y_max]."""
+    area = (bbox[2] - bbox[0]) * (bbox[3] - bbox[1])
+    return area if area > 0 else 0.0
+
+def bbox_intersection(bbox1, bbox2):
+    """Returns the intersection area for two bbox tuples/lists."""
+    x_min = max(bbox1[0], bbox2[0])
+    y_min = max(bbox1[1], bbox2[1])
+    x_max = min(bbox1[2], bbox2[2])
+    y_max = min(bbox1[3], bbox2[3])
+    width = x_max - x_min
+    height = y_max - y_min
+    if width > 0 and height > 0:
+        return width * height
+    return 0.0
