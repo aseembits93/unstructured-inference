@@ -211,10 +211,10 @@ def remove_objects_without_content(page_spans, objects):
     Remove any objects (these can be rows, columns, supercells, etc.) that don't
     have any text associated with them.
     """
-    for obj in objects[:]:
-        object_text, _ = extract_text_inside_bbox(page_spans, obj["bbox"])
-        if len(object_text.strip()) == 0:
-            objects.remove(obj)
+    objects[:] = [
+        obj for obj in objects
+        if extract_text_inside_bbox(page_spans, obj["bbox"])[0].strip()
+    ]
 
 
 def extract_text_inside_bbox(spans, bbox):
@@ -244,11 +244,15 @@ def overlaps(bbox1, bbox2, threshold=0.5):
     """
     Test if more than "threshold" fraction of bbox1 overlaps with bbox2.
     """
-    rect1 = Rect(list(bbox1))
-    area1 = rect1.get_area()
-    if area1 == 0:
+    area1 = (bbox1[2] - bbox1[0]) * (bbox1[3] - bbox1[1])
+    if area1 <= 0:
         return False
-    return rect1.intersect(Rect(list(bbox2))).get_area() / area1 >= threshold
+    ix1 = max(bbox1[0], bbox2[0])
+    iy1 = max(bbox1[1], bbox2[1])
+    ix2 = min(bbox1[2], bbox2[2])
+    iy2 = min(bbox1[3], bbox2[3])
+    inter = max(0, ix2 - ix1) * max(0, iy2 - iy1)
+    return inter / area1 >= threshold
 
 
 def extract_text_from_spans(spans, join_with_space=True, remove_integer_superscripts=True):
@@ -257,25 +261,22 @@ def extract_text_from_spans(spans, join_with_space=True, remove_integer_superscr
     """
 
     join_char = " " if join_with_space else ""
-    spans_copy = spans[:]
 
     if remove_integer_superscripts:
+        spans_copy = []
         for span in spans:
-            if "flags" not in span:
-                continue
-            flags = span["flags"]
-            if flags & 2**0:  # superscript flag
+            if "flags" in span and (span["flags"] & 2**0):  # superscript flag
                 if span["text"].strip().isdigit():
-                    spans_copy.remove(span)
-                else:
-                    span["superscript"] = True
+                    continue
+                span["superscript"] = True
+            spans_copy.append(span)
+    else:
+        spans_copy = spans[:]
 
     if len(spans_copy) == 0:
         return ""
 
-    spans_copy.sort(key=lambda span: span["span_num"])
-    spans_copy.sort(key=lambda span: span["line_num"])
-    spans_copy.sort(key=lambda span: span["block_num"])
+    spans_copy.sort(key=lambda span: (span["block_num"], span["line_num"], span["span_num"]))
 
     # Force the span at the end of every line within a block to have exactly one space
     # unless the line ends with a space or ends with a non-space followed by a hyphen

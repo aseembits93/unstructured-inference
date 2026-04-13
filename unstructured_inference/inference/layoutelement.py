@@ -15,6 +15,7 @@ from unstructured_inference.inference.elements import (
     TextRegions,
     coords_intersections,
 )
+from unstructured_inference.numba_kernels import intersection_areas_numba
 
 EPSILON_AREA = 1e-7
 
@@ -328,16 +329,12 @@ def table_cells_to_dataframe(
     header=None,
 ) -> DataFrame:
     """convert table-transformer's cells data into a pandas dataframe"""
+    if cells:
+        nrows = max(nrows, max(cell["row_nums"][0] + 1 for cell in cells))
+        ncols = max(ncols, max(cell["column_nums"][0] + 1 for cell in cells))
     arr = np.empty((nrows, ncols), dtype=object)
     for cell in cells:
-        rows = cell["row_nums"]
-        cols = cell["column_nums"]
-        if rows[0] >= nrows or cols[0] >= ncols:
-            new_arr = np.empty((max(rows[0] + 1, nrows), max(cols[0] + 1, ncols)), dtype=object)
-            new_arr[:nrows, :ncols] = arr
-            arr = new_arr
-            nrows, ncols = arr.shape
-        arr[rows[0], cols[0]] = cell["cell text"]
+        arr[cell["row_nums"][0], cell["column_nums"][0]] = cell["cell text"]
 
     return DataFrame(arr, columns=header)
 
@@ -371,15 +368,7 @@ def intersection_areas_between_coords(
     threshold: float = 0.5,
 ):
     """compute intersection area and own areas for two groups of bounding boxes"""
-    x11, y11, x12, y12 = np.split(coords1, 4, axis=1)
-    x21, y21, x22, y22 = np.split(coords2, 4, axis=1)
-
-    xa = np.maximum(x11, np.transpose(x21))
-    ya = np.maximum(y11, np.transpose(y21))
-    xb = np.minimum(x12, np.transpose(x22))
-    yb = np.minimum(y12, np.transpose(y22))
-
-    return np.maximum((xb - xa), 0) * np.maximum((yb - ya), 0)
+    return intersection_areas_numba(coords1, coords2)
 
 
 def clean_layoutelements(elements: LayoutElements, subregion_threshold: float = 0.5):

@@ -63,6 +63,9 @@ dev = [
 release = [
     "twine>=6.2.0",
 ]
+numba = [
+    "numba>=0.60.0",
+]
 
 [build-system]
 requires = ["hatchling"]
