@@ -8,6 +8,7 @@ import numpy as np
 
 from unstructured_inference.constants import IsExtracted, Source
 from unstructured_inference.math import safe_division
+from unstructured_inference.numba_kernels import coords_intersections_numba
 
 
 @dataclass
@@ -154,23 +155,7 @@ def coords_intersections(coords: np.ndarray) -> np.ndarray:
     """Returns a square boolean matrix of intersections of given stack of coords, i.e.
     the ijth entry of the matrix is True if and only if the ith coords and jth coords
     intersect."""
-    x1s, y1s, x2s, y2s = coords[:, 0], coords[:, 1], coords[:, 2], coords[:, 3]
-
-    # Use broadcasting to get comparison matrices.
-    # For Rectangles r1 and r2, any of the following conditions makes the rectangles disjoint:
-    # r1.x1 > r2.x2
-    # r1.y1 > r2.y2
-    # r2.x1 > r1.x2
-    # r2.y1 > r1.y2
-    # Then we take the complement (~) of the disjointness matrix to get the intersection matrix.
-    intersections = ~(
-        (x1s[None] > x2s[..., None])
-        | (y1s[None] > y2s[..., None])
-        | (x1s[None] > x2s[..., None]).T
-        | (y1s[None] > y2s[..., None]).T
-    )
-
-    return intersections
+    return coords_intersections_numba(coords)
 
 
 @dataclass

@@ -14,6 +14,7 @@ from unstructured_inference.inference.layoutelement import LayoutElements
 from unstructured_inference.models.unstructuredmodel import (
     UnstructuredObjectDetectionModel,
 )
+from unstructured_inference.numba_kernels import nms_numba
 from unstructured_inference.utils import (
     LazyDict,
     LazyEvaluateInfo,
@@ -215,7 +216,7 @@ def multiclass_nms_class_agnostic(boxes, scores, nms_thr, score_thr):
     valid_scores = cls_scores[valid_score_mask]
     valid_boxes = boxes[valid_score_mask]
     valid_cls_inds = cls_inds[valid_score_mask]
-    keep = nms(valid_boxes, valid_scores, nms_thr)
+    keep = nms_numba(valid_boxes, valid_scores, nms_thr)
     dets = np.concatenate(
         [valid_boxes[keep], valid_scores[keep, None], valid_cls_inds[keep, None]],
         1,
