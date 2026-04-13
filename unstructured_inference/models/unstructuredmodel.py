@@ -143,14 +143,14 @@ class UnstructuredObjectDetectionModel(UnstructuredModel):
         other_elements.sort(key=lambda e: e.bbox.area, reverse=True)
 
         # First check if targets contains each other
+        ids_to_remove = set()
         for element in target_elements:  # Just handles containment or little overlap
-            contains = [
-                e
-                for e in target_elements
-                if e.bbox.is_almost_subregion_of(element.bbox) and e != element
-            ]
-            for contained in contains:
-                target_elements.remove(contained)
+            if id(element) in ids_to_remove:
+                continue
+            for e in target_elements:
+                if e is not element and id(e) not in ids_to_remove and e.bbox.is_almost_subregion_of(element.bbox):
+                    ids_to_remove.add(id(e))
+        target_elements = [e for e in target_elements if id(e) not in ids_to_remove]
         # Then check if remaining elements intersect with targets
         other_elements = filter(
             lambda e: (

@@ -328,16 +328,12 @@ def table_cells_to_dataframe(
     header=None,
 ) -> DataFrame:
     """convert table-transformer's cells data into a pandas dataframe"""
+    if cells:
+        nrows = max(nrows, max(cell["row_nums"][0] + 1 for cell in cells))
+        ncols = max(ncols, max(cell["column_nums"][0] + 1 for cell in cells))
     arr = np.empty((nrows, ncols), dtype=object)
     for cell in cells:
-        rows = cell["row_nums"]
-        cols = cell["column_nums"]
-        if rows[0] >= nrows or cols[0] >= ncols:
-            new_arr = np.empty((max(rows[0] + 1, nrows), max(cols[0] + 1, ncols)), dtype=object)
-            new_arr[:nrows, :ncols] = arr
-            arr = new_arr
-            nrows, ncols = arr.shape
-        arr[rows[0], cols[0]] = cell["cell text"]
+        arr[cell["row_nums"][0], cell["column_nums"][0]] = cell["cell text"]
 
     return DataFrame(arr, columns=header)
 

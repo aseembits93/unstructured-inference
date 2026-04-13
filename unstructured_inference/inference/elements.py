@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from copy import deepcopy
 from dataclasses import dataclass, field
 from functools import cached_property
 from typing import Optional, Union
@@ -27,18 +26,12 @@ class Rectangle:
     def hpad(self, padding: Union[int, float]):
         """Increases (or decreases, if padding is negative) the size of the rectangle by extending
         the left and right sides of the boundary outward (resp. inward)."""
-        out_object = deepcopy(self)
-        out_object.x1 -= padding
-        out_object.x2 += padding
-        return out_object
+        return Rectangle(self.x1 - padding, self.y1, self.x2 + padding, self.y2)
 
     def vpad(self, padding: Union[int, float]):
         """Increases (or decreases, if padding is negative) the size of the rectangle by extending
         the top and bottom of the boundary outward (resp. inward)."""
-        out_object = deepcopy(self)
-        out_object.y1 -= padding
-        out_object.y2 += padding
-        return out_object
+        return Rectangle(self.x1, self.y1 - padding, self.x2, self.y2 + padding)
 
     @property
     def width(self) -> Union[int, float]:
