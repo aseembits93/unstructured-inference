@@ -538,8 +538,8 @@ def structure_to_cells(table_structure, tokens):
     # Identify complete cells and subcells
     for column_num, column in enumerate(columns):
         for row_num, row in enumerate(rows):
-            column_rect = Rect(list(column["bbox"]))
-            row_rect = Rect(list(row["bbox"]))
+            column_rect = Rect(column["bbox"])
+            row_rect = Rect(row["bbox"])
             cell_rect = row_rect.intersect(column_rect)
             header = "column header" in row and row["column header"]
             cell = {
@@ -551,10 +551,15 @@ def structure_to_cells(table_structure, tokens):
 
             cell["subcell"] = False
             for spanning_cell in spanning_cells:
-                spanning_cell_rect = Rect(list(spanning_cell["bbox"]))
-                if (
-                    spanning_cell_rect.intersect(cell_rect).get_area() / cell_rect.get_area()
-                ) > inference_config.TABLE_IOB_THRESHOLD:
+                spanning_cell_rect = Rect(spanning_cell["bbox"])
+                intersection = spanning_cell_rect.intersect(cell_rect)
+                cell_area = cell_rect.get_area()
+                # Cache area to avoid multiple area calculation
+                if cell_area > 0:
+                    overlap_ratio = intersection.get_area() / cell_area
+                else:
+                    overlap_ratio = 0.0
+                if overlap_ratio > inference_config.TABLE_IOB_THRESHOLD:
                     cell["subcell"] = True
                     cell["is_merged"] = False
                     break
@@ -568,21 +573,24 @@ def structure_to_cells(table_structure, tokens):
                 cells.append(cell)
 
     for spanning_cell in spanning_cells:
-        spanning_cell_rect = Rect(list(spanning_cell["bbox"]))
+        spanning_cell_rect = Rect(spanning_cell["bbox"])
         cell_columns = set()
         cell_rows = set()
         cell_rect = None
         header = True
         for subcell in subcells:
-            subcell_rect = Rect(list(subcell["bbox"]))
+            subcell_rect = Rect(subcell["bbox"])
             subcell_rect_area = subcell_rect.get_area()
+            intersection = subcell_rect.intersect(spanning_cell_rect)
             if (
-                subcell_rect.intersect(spanning_cell_rect).get_area() / subcell_rect_area
-            ) > inference_config.TABLE_IOB_THRESHOLD and subcell["is_merged"] is False:
+                subcell_rect_area > 0 and
+                intersection.get_area() / subcell_rect_area > inference_config.TABLE_IOB_THRESHOLD
+                and subcell["is_merged"] is False
+            ):
                 if cell_rect is None:
-                    cell_rect = Rect(list(subcell["bbox"]))
+                    cell_rect = Rect(subcell["bbox"])
                 else:
-                    cell_rect.include_rect(list(subcell["bbox"]))
+                    cell_rect.include_rect(subcell["bbox"])
                 cell_rows = cell_rows.union(set(subcell["row_nums"]))
                 cell_columns = cell_columns.union(set(subcell["column_nums"]))
                 # By convention here, all subcells must be classified
@@ -612,10 +620,10 @@ def structure_to_cells(table_structure, tokens):
     for cell in cells:
         column_rect = Rect()
         for column_num in cell["column_nums"]:
-            column_rect.include_rect(list(dilated_columns[column_num]["bbox"]))
+            column_rect.include_rect(dilated_columns[column_num]["bbox"])
         row_rect = Rect()
         for row_num in cell["row_nums"]:
-            row_rect.include_rect(list(dilated_rows[row_num]["bbox"]))
+            row_rect.include_rect(dilated_rows[row_num]["bbox"])
         cell_rect = column_rect.intersect(row_rect)
         cell["bbox"] = cell_rect.get_bbox()
 
@@ -678,14 +686,14 @@ def structure_to_cells(table_structure, tokens):
         column_rect = None
         for row_num in cell["row_nums"]:
             if row_rect is None:
-                row_rect = Rect(list(rows[row_num]["bbox"]))
+                row_rect = Rect(rows[row_num]["bbox"])
             else:
-                row_rect.include_rect(list(rows[row_num]["bbox"]))
+                row_rect.include_rect(rows[row_num]["bbox"])
         for column_num in cell["column_nums"]:
             if column_rect is None:
-                column_rect = Rect(list(columns[column_num]["bbox"]))
+                column_rect = Rect(columns[column_num]["bbox"])
             else:
-                column_rect.include_rect(list(columns[column_num]["bbox"]))
+                column_rect.include_rect(columns[column_num]["bbox"])
         cell_rect = row_rect.intersect(column_rect)
         if cell_rect.get_area() > 0:
             cell["bbox"] = cell_rect.get_bbox()
