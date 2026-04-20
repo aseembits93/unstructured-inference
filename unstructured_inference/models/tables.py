@@ -18,7 +18,7 @@ from transformers.models.table_transformer.modeling_table_transformer import (
 from unstructured_inference.config import inference_config
 from unstructured_inference.inference.layoutelement import table_cells_to_dataframe
 from unstructured_inference.logger import logger
-from unstructured_inference.models.table_postprocess import Rect
+from unstructured_inference.models.table_postprocess import bbox_intersection, get_rect_area, Rect
 from unstructured_inference.models.unstructuredmodel import UnstructuredModel
 from unstructured_inference.utils import pad_image_with_background_color
 
@@ -313,11 +313,11 @@ def iob(bbox1, bbox2):
     """
     Compute the intersection area over box area, for bbox1.
     """
-    intersection = Rect(bbox1).intersect(Rect(bbox2))
+    intersection_area = bbox_intersection(bbox1, bbox2)
+    bbox1_area = get_rect_area(bbox1)
 
-    bbox1_area = Rect(bbox1).get_area()
     if bbox1_area > 0:
-        return intersection.get_area() / bbox1_area
+        return intersection_area / bbox1_area
 
     return 0
 
