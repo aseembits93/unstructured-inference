@@ -70,10 +70,17 @@ def get_default_model_mappings() -> Tuple[
     Dict[str, dict | LazyDict],
 ]:
     """default model mappings for models that are in `unstructured_inference` repo"""
-    return {
-        **dict.fromkeys(DETECTRON2_ONNX_MODEL_TYPES, UnstructuredDetectronONNXModel),
-        **dict.fromkeys(YOLOX_MODEL_TYPES, UnstructuredYoloXModel),
-    }, {**DETECTRON2_ONNX_MODEL_TYPES, **YOLOX_MODEL_TYPES}
+    model_mappings = {}
+    for key in DETECTRON2_ONNX_MODEL_TYPES:
+        model_mappings[key] = UnstructuredDetectronONNXModel
+    for key in YOLOX_MODEL_TYPES:
+        model_mappings[key] = UnstructuredYoloXModel
+    
+    model_types = {}
+    model_types.update(DETECTRON2_ONNX_MODEL_TYPES)
+    model_types.update(YOLOX_MODEL_TYPES)
+    
+    return model_mappings, model_types
 
 
 model_class_map, model_config_map = get_default_model_mappings()
