@@ -313,12 +313,17 @@ def iob(bbox1, bbox2):
     """
     Compute the intersection area over box area, for bbox1.
     """
-    intersection = Rect(bbox1).intersect(Rect(bbox2))
-
-    bbox1_area = Rect(bbox1).get_area()
+    # Inline intersection-area logic without unnecessary Rect instantiation
+    x1 = max(bbox1[0], bbox2[0])
+    y1 = max(bbox1[1], bbox2[1])
+    x2 = min(bbox1[2], bbox2[2])
+    y2 = min(bbox1[3], bbox2[3])
+    iw = max(0, x2 - x1)
+    ih = max(0, y2 - y1)
+    intersection_area = iw * ih
+    bbox1_area = (bbox1[2] - bbox1[0]) * (bbox1[3] - bbox1[1])
     if bbox1_area > 0:
-        return intersection.get_area() / bbox1_area
-
+        return intersection_area / bbox1_area
     return 0
 
 
@@ -333,37 +338,68 @@ def objects_to_structures(objects, tokens, class_thresholds):
     tables = [obj for obj in objects if obj["label"] == "table"]
     table_structures = []
 
-    for table in tables:
-        table_objects = [
-            obj
-            for obj in objects
-            if iob(obj["bbox"], table["bbox"]) >= inference_config.TABLE_IOB_THRESHOLD
-        ]
-        table_tokens = [
-            token
-            for token in tokens
-            if iob(token["bbox"], table["bbox"]) >= inference_config.TABLE_IOB_THRESHOLD
-        ]
+    # Precompute iobs for tokens/objects to avoid recomputation within table loops
+    obj_bboxs = [(idx, obj["bbox"]) for idx, obj in enumerate(objects)]
+    token_bboxs = [(idx, token["bbox"]) for idx, token in enumerate(tokens)]
+    obj_labels = [obj["label"] for obj in objects]
+    token_labels = [token.get("label", None) for token in tokens]  # Defensive: token may not have label
+
+    for t_idx, table in enumerate(tables):
+        table_bbox = table["bbox"]
+
+        table_objects, table_tokens = [], []
+
+        # Efficient single-pass for objects
+        table_objects_idx = []
+        for idx, bbox in obj_bboxs:
+            if iob(bbox, table_bbox) >= inference_config.TABLE_IOB_THRESHOLD:
+                table_objects_idx.append(idx)
+        table_objects = [objects[idx] for idx in table_objects_idx]
+
+        # Efficient single-pass for tokens
+        table_tokens_idx = []
+        for idx, bbox in token_bboxs:
+            if iob(bbox, table_bbox) >= inference_config.TABLE_IOB_THRESHOLD:
+                table_tokens_idx.append(idx)
+        table_tokens = [tokens[idx] for idx in table_tokens_idx]
 
         structure = {}
 
-        columns = [obj for obj in table_objects if obj["label"] == "table column"]
-        rows = [obj for obj in table_objects if obj["label"] == "table row"]
-        column_headers = [obj for obj in table_objects if obj["label"] == "table column header"]
-        spanning_cells = [obj for obj in table_objects if obj["label"] == "table spanning cell"]
+        # Single pass to extract needed items from table_objects by label
+        columns, rows, column_headers, spanning_cells, projected_row_headers = [], [], [], [], []
+        for obj in table_objects:
+            label = obj["label"]
+            if label == "table column":
+                columns.append(obj)
+            elif label == "table row":
+                rows.append(obj)
+            elif label == "table column header":
+                column_headers.append(obj)
+            elif label == "table spanning cell":
+                spanning_cells.append(obj)
+            elif label == "table projected row header":
+                projected_row_headers.append(obj)
+
         for obj in spanning_cells:
             obj["projected row header"] = False
-        projected_row_headers = [
-            obj for obj in table_objects if obj["label"] == "table projected row header"
-        ]
         for obj in projected_row_headers:
             obj["projected row header"] = True
         spanning_cells += projected_row_headers
+
+        column_headers_set = set(id(header) for header in column_headers)
         for obj in rows:
             obj["column header"] = False
-            for header_obj in column_headers:
-                if iob(obj["bbox"], header_obj["bbox"]) >= inference_config.TABLE_IOB_THRESHOLD:
-                    obj["column header"] = True
+
+        # Optimize: create bbox list for all headers to avoid deep nesting loops
+        header_bbox_list = [(i, header["bbox"]) for i, header in enumerate(column_headers)]
+        if header_bbox_list and rows:
+            for obj in rows:
+                # Any header with sufficient iob qualifies
+                row_bbox = obj["bbox"]
+                for _, header_bbox in header_bbox_list:
+                    if iob(row_bbox, header_bbox) >= inference_config.TABLE_IOB_THRESHOLD:
+                        obj["column header"] = True
+                        break
 
         # Refine table structures
         rows = postprocess.refine_rows(rows, table_tokens, class_thresholds["table row"])
@@ -375,23 +411,24 @@ def objects_to_structures(objects, tokens, class_thresholds):
 
         # Shrink table bbox to just the total height of the rows
         # and the total width of the columns
-        row_rect = Rect()
-        for obj in rows:
-            row_rect.include_rect(obj["bbox"])
-        column_rect = Rect()
-        for obj in columns:
-            column_rect.include_rect(obj["bbox"])
-        table["row_column_bbox"] = [
-            column_rect.x_min,
-            row_rect.y_min,
-            column_rect.x_max,
-            row_rect.y_max,
-        ]
-        table["bbox"] = table["row_column_bbox"]
+        if rows:
+            # Fast union of many bboxes
+            min_y = min(r["bbox"][1] for r in rows)
+            max_y = max(r["bbox"][3] for r in rows)
+        else:
+            min_y = max_y = 0
+        if columns:
+            min_x = min(c["bbox"][0] for c in columns)
+            max_x = max(c["bbox"][2] for c in columns)
+        else:
+            min_x = max_x = 0
+        row_column_bbox = [min_x, min_y, max_x, max_y]
+        table["row_column_bbox"] = row_column_bbox
+        table["bbox"] = row_column_bbox
 
         # Process the rows and columns into a complete segmented table
-        columns = postprocess.align_columns(columns, table["row_column_bbox"])
-        rows = postprocess.align_rows(rows, table["row_column_bbox"])
+        columns = postprocess.align_columns(columns, row_column_bbox)
+        rows = postprocess.align_rows(rows, row_column_bbox)
 
         structure["rows"] = rows
         structure["columns"] = columns
