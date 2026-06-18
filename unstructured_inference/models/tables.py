@@ -471,10 +471,12 @@ def align_headers(headers, rows):
 
     header_row_nums = []
     for header in headers:
+        h_y_min, h_y_max = header["bbox"][1], header["bbox"][3]
         for row_num, row in enumerate(rows):
-            row_height = row["bbox"][3] - row["bbox"][1]
-            min_row_overlap = max(row["bbox"][1], header["bbox"][1])
-            max_row_overlap = min(row["bbox"][3], header["bbox"][3])
+            r_y_min, r_y_max = row["bbox"][1], row["bbox"][3]
+            row_height = r_y_max - r_y_min
+            min_row_overlap = max(r_y_min, h_y_min)
+            max_row_overlap = min(r_y_max, h_y_max)
             overlap_height = max_row_overlap - min_row_overlap
             if overlap_height / row_height >= 0.5:
                 header_row_nums.append(row_num)

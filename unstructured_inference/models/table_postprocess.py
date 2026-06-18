@@ -47,19 +47,21 @@ class Rect:
 
     def include_rect(self, bbox):
         """Calculates a rectangle that includes both rectangles"""
-        other = Rect(bbox)
+        # Avoid object construction for performance
+        other_x_min, other_y_min, other_x_max, other_y_max = bbox
 
-        if self.get_area() == 0:
-            self.x_min = other.x_min
-            self.y_min = other.y_min
-            self.x_max = other.x_max
-            self.y_max = other.y_max
+        # Inline area computation to avoid get_area method and object allocation overhead
+        if (self.x_max - self.x_min) * (self.y_max - self.y_min) <= 0:
+            self.x_min = other_x_min
+            self.y_min = other_y_min
+            self.x_max = other_x_max
+            self.y_max = other_y_max
             return self
 
-        self.x_min = min(self.x_min, other.x_min)
-        self.y_min = min(self.y_min, other.y_min)
-        self.x_max = max(self.x_max, other.x_max)
-        self.y_max = max(self.y_max, other.y_max)
+        self.x_min = min(self.x_min, other_x_min)
+        self.y_min = min(self.y_min, other_y_min)
+        self.x_max = max(self.x_max, other_x_max)
+        self.y_max = max(self.y_max, other_y_max)
 
         # if self.get_area() == 0:
         #     self.x_min = other.x_min
